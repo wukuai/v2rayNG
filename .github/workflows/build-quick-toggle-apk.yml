@@ -1,0 +1,114 @@
+name: Build Quick-Toggle Debug APK
+
+# Builds an installable (debug-signed) APK directly from tag 2.2.3 (commit
+# b103e3aec98650272b7d9d1ee0f5c9cd0aa7a58c) and publishes it to a public
+# GitHub Release so it can be downloaded without any signing secrets.
+#
+# The "quick toggle" feature (Quick Settings Tile + home-screen widget) already
+# exists in 2.2.3, so this workflow only builds & ships that release as an APK.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - claude/quick-toggle-feature-yq7lam
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout 2.2.3 source
+      uses: actions/checkout@v6
+      with:
+        ref: b103e3aec98650272b7d9d1ee0f5c9cd0aa7a58c
+        submodules: 'recursive'
+        fetch-depth: '0'
+
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v4
+      with:
+        log-accepted-android-sdk-licenses: false
+        cmdline-tools-version: '14742923'
+        packages: 'platforms;android-37.0 build-tools;37.0.0 platform-tools'
+
+    - name: Install NDK
+      run: |
+        echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+          --channel=0 \
+          --install "ndk;29.0.14206865"
+        echo "NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865" >> $GITHUB_ENV
+        sed -i '10i\
+        \
+            ndkVersion = "29.0.14206865"' ${{ github.workspace }}/V2rayNG/app/build.gradle.kts
+
+    - name: Build libhevtun
+      run: bash compile-hevtun.sh
+
+    - name: Copy libhevtun
+      run: cp -r ${{ github.workspace }}/libs ${{ github.workspace }}/V2rayNG/app
+
+    - name: Fetch AndroidLibXrayLite tag
+      run: |
+        pushd AndroidLibXrayLite
+        CURRENT_TAG=$(git describe --tags --abbrev=0)
+        echo "Current tag in this repo: $CURRENT_TAG"
+        echo "CURRENT_TAG=$CURRENT_TAG" >> $GITHUB_ENV
+        popd
+
+    - name: Download libv2ray
+      uses: robinraju/release-downloader@v1.13
+      with:
+        repository: '2dust/AndroidLibXrayLite'
+        tag: ${{ env.CURRENT_TAG }}
+        fileName: 'libv2ray.aar'
+        out-file-path: V2rayNG/app/libs/
+
+    - name: Setup Java
+      uses: actions/setup-java@v5
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: Build debug APK (playstore flavor)
+      run: |
+        cd ${{ github.workspace }}/V2rayNG
+        echo "sdk.dir=${ANDROID_HOME}" > local.properties
+        chmod 755 gradlew
+        ./gradlew assemblePlaystoreDebug
+
+    - name: List built APKs
+      run: find ${{ github.workspace }}/V2rayNG/app/build/outputs/apk -name '*.apk'
+
+    - name: Upload APK as workflow artifact
+      uses: actions/upload-artifact@v7
+      if: ${{ success() }}
+      with:
+        name: v2rayNG-2.2.3-playstore-debug
+        path: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/playstore/debug/*.apk
+
+    - name: Publish APK to GitHub Release
+      uses: svenstaro/upload-release-action@v2
+      if: ${{ success() }}
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/playstore/debug/*.apk
+        tag: quick-toggle-debug-2.2.3
+        release_name: "v2rayNG 2.2.3 (debug, quick-toggle)"
+        body: |
+          Debug-signed APK built from tag 2.2.3 (commit b103e3a).
+
+          The quick-toggle feature (Android Quick Settings Tile + home-screen
+          widget) is already part of 2.2.3 — this is just that release packaged
+          as a directly installable APK.
+
+          NOTE: This is a DEBUG signature, so it cannot upgrade an existing
+          v2rayNG install (F-Droid / Play Store / official). Uninstall the old
+          app first (back up your config via the in-app Backup & Restore), then
+          install the matching ABI APK (or the universal one).
+        overwrite: true
+        file_glob: true
+        prerelease: true
