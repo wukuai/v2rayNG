@@ -9,10 +9,13 @@ on:
   push:
     branches:
       - master
+      - claude/app-specific-proxy-nodes-aa3sl1
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
@@ -113,9 +116,10 @@ jobs:
 
     - name: Upload to release
       uses: svenstaro/upload-release-action@v2
-      if: github.event.inputs.release_tag != ''
+      if: ${{ success() }}
       with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/debug/*.apk
-        tag: ${{ github.event.inputs.release_tag }}
+        tag: ${{ github.event.inputs.release_tag || 'per-app-node-debug-2.2.3' }}
         file_glob: true
         prerelease: true
