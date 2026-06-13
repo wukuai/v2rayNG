@@ -25,6 +25,15 @@ object AppConfig {
     const val PREF_PER_APP_PROXY = "pref_per_app_proxy"
     const val PREF_PER_APP_PROXY_SET = "pref_per_app_proxy_set"
     const val PREF_BYPASS_APPS = "pref_bypass_apps"
+    const val PREF_PER_APP_NODE = "pref_per_app_node"
+    const val PREF_PER_APP_NODE_MAP = "pref_per_app_node_map"
+
+    /**
+     * Marker prefix written into the remarks of routing rulesets that are
+     * synthesized from the per-app node mapping. Used to find and rebuild them
+     * without touching user-authored rules.
+     */
+    const val PER_APP_NODE_RULE_PREFIX = "[app-node] "
     const val PREF_LOCAL_DNS_ENABLED = "pref_local_dns_enabled"
     const val PREF_FAKE_DNS_ENABLED = "pref_fake_dns_enabled"
     const val PREF_APPEND_HTTP_PROXY = "pref_append_http_proxy"

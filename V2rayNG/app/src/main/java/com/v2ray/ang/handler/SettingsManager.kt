@@ -13,6 +13,7 @@ import com.v2ray.ang.AppConfig.GEOSITE_PRIVATE
 import com.v2ray.ang.AppConfig.TAG_DIRECT
 import com.v2ray.ang.AppConfig.VPN
 import com.v2ray.ang.dto.V2rayConfig
+import com.v2ray.ang.dto.entities.PerAppNodeItem
 import com.v2ray.ang.dto.entities.ProfileItem
 import com.v2ray.ang.dto.entities.RulesetItem
 import com.v2ray.ang.dto.entities.SubscriptionItem
@@ -173,6 +174,71 @@ object SettingsManager {
 
         rulesetList.removeAt(index)
         MmkvManager.encodeRoutingRulesets(rulesetList)
+    }
+
+    /**
+     * Get the persisted per-app node mapping (packageName -> outboundTag).
+     *
+     * Apps that follow the global proxy are not stored, so they are absent here.
+     * @return A mutable map of package name to target outbound tag.
+     */
+    fun getPerAppNodeMap(): MutableMap<String, String> {
+        val content = MmkvManager.decodeSettingsString(AppConfig.PREF_PER_APP_NODE_MAP)
+        if (content.isNullOrEmpty()) return mutableMapOf()
+        val items = JsonUtil.fromJsonSafe(content, Array<PerAppNodeItem>::class.java) ?: return mutableMapOf()
+        return items
+            .filter { it.packageName.isNotEmpty() && it.outboundTag.isNotEmpty() }
+            .associate { it.packageName to it.outboundTag }
+            .toMutableMap()
+    }
+
+    /**
+     * Persist the per-app node mapping.
+     * @param map A map of package name to target outbound tag.
+     */
+    fun savePerAppNodeMap(map: Map<String, String>) {
+        val items = map
+            .filter { it.key.isNotEmpty() && it.value.isNotEmpty() }
+            .map { PerAppNodeItem(it.key, it.value) }
+        MmkvManager.encodeSettings(AppConfig.PREF_PER_APP_NODE_MAP, JsonUtil.toJson(items))
+    }
+
+    /**
+     * Rebuild the routing rulesets synthesized from the per-app node mapping.
+     *
+     * Old synthesized rules (identified by [AppConfig.PER_APP_NODE_RULE_PREFIX]
+     * in their remarks) are removed first, then regenerated from the current
+     * mapping when the feature is enabled. User-authored rules are untouched.
+     * The synthesized rules are placed at the front of the list because routing
+     * is matched in order and these app-specific rules must win over broader
+     * rules.
+     */
+    fun rebuildPerAppNodeRules() {
+        val existing = MmkvManager.decodeRoutingRulesets() ?: mutableListOf()
+        val kept = existing
+            .filterNot { it.remarks?.startsWith(AppConfig.PER_APP_NODE_RULE_PREFIX) == true }
+            .toMutableList()
+
+        val synthesized = mutableListOf<RulesetItem>()
+        if (MmkvManager.decodeSettingsBool(AppConfig.PREF_PER_APP_NODE, false)) {
+            getPerAppNodeMap().entries
+                .filter { it.value.isNotBlank() && it.value != AppConfig.TAG_PROXY }
+                .groupBy({ it.value }, { it.key })
+                .forEach { (tag, packages) ->
+                    synthesized.add(
+                        RulesetItem(
+                            remarks = "${AppConfig.PER_APP_NODE_RULE_PREFIX}$tag",
+                            process = packages.distinct(),
+                            outboundTag = tag,
+                            enabled = true,
+                            locked = false,
+                        )
+                    )
+                }
+        }
+
+        val newList = (synthesized + kept).toMutableList()
+        MmkvManager.encodeRoutingRulesets(newList)
     }
 
     /**
