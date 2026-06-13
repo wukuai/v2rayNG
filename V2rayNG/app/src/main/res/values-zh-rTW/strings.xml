@@ -146,6 +146,16 @@
     <string name="per_app_proxy_settings">分應用設置</string>
     <string name="per_app_proxy_settings_enable">根據應用分流</string>
 
+    <!-- 分應用節點路由 -->
+    <string name="per_app_node_settings">分應用節點路由</string>
+    <string name="per_app_node_settings_enable">啟用分應用節點路由</string>
+    <string name="summary_per_app_node">為單個應用指定專屬代理節點（或直連/封鎖）。點擊應用即可選擇其目標節點；未指定的應用走全域代理。需要 Android 10+、Xray TUN 模式和僅路由(Route Only)。</string>
+    <string name="per_app_node_follow_global">跟隨全域</string>
+    <string name="per_app_node_target_direct">直連</string>
+    <string name="per_app_node_target_block">封鎖</string>
+    <string name="per_app_node_requires_android10">分應用節點路由需要 Android 10 或更新版本</string>
+    <string name="per_app_node_prerequisite_message">分應用節點路由需要切換到 Xray TUN 模式並啟用僅路由(Route Only)，這會改變通道隔離與 DNS 行為。現在套用這些設定嗎？</string>
+
 
     <!-- Preferences -->
     <string name="title_settings">設定</string>

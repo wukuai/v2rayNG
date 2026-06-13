@@ -120,6 +120,6 @@ jobs:
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
         file: ${{ github.workspace }}/V2rayNG/app/build/outputs/apk/*/debug/*.apk
-        tag: ${{ github.event.inputs.release_tag || 'per-app-node-debug-2.2.3' }}
+        tag: ${{ github.event.inputs.release_tag || 'per-app-node-debug-2.2.3-appnode' }}
         file_glob: true
         prerelease: true
